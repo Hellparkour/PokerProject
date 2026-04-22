@@ -12,8 +12,34 @@ public class CardDetection : MonoBehaviour
 
     void Start()
     {
+        WebCamDevice[] devices = WebCamTexture.devices;
 
-        webcamTexture = new WebCamTexture();
+        if (devices.Length == 0)
+        {
+            Debug.LogError("Aucune caméra détectée !");
+            return;
+        }
+
+        string targetCameraName = "Live Streamer CAM 313";
+        bool found = false;
+
+        foreach (var device in devices)
+        {
+            Debug.Log("Caméra détectée : " + device.name);
+
+            if (device.name == targetCameraName)
+            {
+                webcamTexture = new WebCamTexture(device.name, 1280, 720, 30);
+                found = true;
+                break;
+            }
+        }
+
+        if (!found)
+        {
+            Debug.LogError("Caméra cible non trouvée !");
+            return;
+        }
 
         if (cameraDisplay != null)
         {

@@ -663,31 +663,31 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PokerLogic
   fullDeck:
   - suit: 0
-    value: 0
+    value: 14
   - suit: 0
-    value: 0
+    value: 2
   - suit: 0
-    value: 0
+    value: 3
   - suit: 0
-    value: 0
+    value: 4
   - suit: 0
-    value: 0
+    value: 5
   - suit: 0
-    value: 0
+    value: 6
   - suit: 0
-    value: 0
+    value: 7
   - suit: 0
-    value: 0
+    value: 8
   - suit: 0
-    value: 0
+    value: 9
   - suit: 0
-    value: 0
+    value: 10
   - suit: 0
-    value: 0
+    value: 11
   - suit: 0
-    value: 0
+    value: 12
   - suit: 0
-    value: 0
+    value: 13
   - suit: 0
     value: 0
   - suit: 0
@@ -1381,7 +1381,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1573306134}
-  - component: {fileID: 1573306133}
   m_Layer: 0
   m_Name: CameraManager
   m_TagString: Untagged
@@ -1389,20 +1388,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1573306133
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1573306132}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c17776e6555670a4b959122f98237b82, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CardDetection
-  cameraDisplay: {fileID: 0}
-  pokerLogic: {fileID: 0}
 --- !u!4 &1573306134
 Transform:
   m_ObjectHideFlags: 0
@@ -1485,6 +1470,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CardDetection
   cameraDisplay: {fileID: 1857507866}
+  threshold: 0.8
   pokerLogic: {fileID: 791959397}
 --- !u!4 &1664460767
 Transform:

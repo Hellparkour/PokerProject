@@ -10,7 +10,6 @@ public class PokerLogic : MonoBehaviour
 
     void Start()
     {
-        // TODO: Déroulement annexe.
         ResetGame();
     }
 
@@ -21,7 +20,6 @@ public class PokerLogic : MonoBehaviour
         computerHand.Clear();
     }
 
-    // Génère le paquet réel de 52 cartes. (Sans Jokers)
     private void GenerateFullDeck()
     {
         fullDeck.Clear();
@@ -29,43 +27,49 @@ public class PokerLogic : MonoBehaviour
         {
             foreach (CardValue v in System.Enum.GetValues(typeof(CardValue)))
             {
-                Card newCard = new Card();
-                newCard.suit = s;
-                newCard.value = v;
-                fullDeck.Add(newCard);
+                fullDeck.Add(new Card { suit = s, value = v });
             }
         }
-        Debug.Log("Paquet de 52 cartes prêt.");
     }
 
-    // TODO: faire le Joueur
-    public void InitializePlayerHand(List<Card> detectedCards)
+    public void AddDetectedCardToPlayer(Card card)
     {
-        playerHand = detectedCards;
-
-        foreach (Card c in detectedCards)
+        // 1. Vérifier si on a déjà 5 cartes
+        if (playerHand.Count >= 5)
         {
-            RemoveCardFromDeck(c.suit, c.value);
+            Debug.Log("Main pleine !");
+            return;
         }
 
-        Debug.Log("Main du joueur enregistré. Cartes restantes dans le deck : " + fullDeck.Count);
+        // 2. Vérifier si la carte est déjà en main
+        if (playerHand.Exists(c => c.suit == card.suit && c.value == card.value))
+        {
+            Debug.LogWarning("Carte déjà détectée.");
+            return;
+        }
 
-        GenerateComputerHand();
+        // 3. Ajouter et retirer du deck
+        playerHand.Add(card);
+        RemoveCardFromDeck(card.suit, card.value);
+        Debug.Log($"{card.value} de {card.suit} ajouté ! ({playerHand.Count}/5)");
+
+        if (playerHand.Count == 5)
+        {
+            GenerateComputerHand();
+        }
     }
 
     private void GenerateComputerHand()
     {
-        // L'ordinateur pioche 5 cartes au hasard parmi celles restantes
         for (int i = 0; i < 5; i++)
         {
             int randomIndex = Random.Range(0, fullDeck.Count);
             computerHand.Add(fullDeck[randomIndex]);
             fullDeck.RemoveAt(randomIndex);
         }
-        Debug.Log("Main de l'ordinateur généré.");
+        Debug.Log("Main de l'ordinateur prête !");
     }
 
-    //Enleve la carte spécifique.
     private void RemoveCardFromDeck(CardSuit s, CardValue v)
     {
         fullDeck.RemoveAll(c => c.suit == s && c.value == v);

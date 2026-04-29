@@ -122,6 +122,8 @@ GameObject:
   m_Component:
   - component: {fileID: 2509545349697722076}
   - component: {fileID: 8215694627278334024}
+  - component: {fileID: 4617639747029787866}
+  - component: {fileID: 751599629594759396}
   m_Layer: 0
   m_Name: CarteTemplateEmpty
   m_TagString: Untagged
@@ -138,7 +140,7 @@ Transform:
   m_GameObject: {fileID: 2147205707080979158}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: -0.0027, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -159,6 +161,40 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CardVisualUpdater
   faceRenderer: {fileID: 1421689299384060121}
+--- !u!114 &4617639747029787866
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2147205707080979158}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 903d111e4d0658d44b11891e2b68cc3e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CardSelectable
+  isSelected: 0
+--- !u!65 &751599629594759396
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2147205707080979158}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.300308, y: 0.0184911, z: 0.36437118}
+  m_Center: {x: -0.0003617108, y: -0.0040006638, z: -0.003908664}
 --- !u!1 &4253540281160655472
 GameObject:
   m_ObjectHideFlags: 0

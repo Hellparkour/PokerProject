@@ -4,6 +4,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using Vuforia;
 
+//Script Vuforia réadapté
 public class CardScannerPro : MonoBehaviour
 {
     public RectTransform redSquare;

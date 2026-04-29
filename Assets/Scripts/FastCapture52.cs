@@ -2,116 +2,103 @@ using System.IO;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
-using Vuforia; // On ajoute Vuforia
+using Vuforia;
 
 public class CardScannerPro : MonoBehaviour
 {
-    [Header("Configuration UI")]
-    public RectTransform redSquare; // Glisse ton carré rouge (64x64) ici
-    public RawImage previewDisplay; // Pour voir ce qu'on capture (optionnel)
+    public RectTransform redSquare;
+    public RawImage debugPreview;
 
-    // On garde ton système d'index pour les 52 cartes
+    [Header("Réglages Viewport (0.3)")]
+    public float viewX = 0f;
+    public float viewY = 0f;
+    public float viewW = 0.3f;
+    public float viewH = 0.3f;
+
     private string[] values = { "AS", "2", "3", "4", "5", "6", "7", "8", "9", "10", "VALET", "DAME", "ROI" };
     private string[] suits = { "PIQUE", "COEUR", "CARREAU", "TREFLE" };
-
-    private int valIndex = 0;
-    private int suitIndex = 0;
+    private int valIndex = 0, suitIndex = 0;
     private bool isFinished = false;
-
-    // Format requis pour Vuforia
-    private PixelFormat mPixelFormat = PixelFormat.RGB888;
 
     void Start()
     {
-        // On demande à Vuforia d'activer le format de lecture de pixels
         VuforiaApplication.Instance.OnVuforiaStarted += () => {
-            VuforiaBehaviour.Instance.CameraDevice.SetFrameFormat(mPixelFormat, true);
+            VuforiaBehaviour.Instance.CameraDevice.SetFrameFormat(PixelFormat.RGB888, true);
         };
-
-        Debug.Log($"<color=cyan>DÉMARRAGE : Aligne l'<b>{values[valIndex]} de {suits[suitIndex]}</b> dans le carré rouge et appuie sur K</color>");
     }
 
     void Update()
     {
-        if (Keyboard.current.kKey.wasPressedThisFrame && !isFinished)
-        {
+        if (Keyboard.current != null && Keyboard.current.kKey.wasPressedThisFrame && !isFinished)
             CaptureFromVuforia();
-        }
     }
 
     void CaptureFromVuforia()
     {
-        // 1. Récupérer l'image de Vuforia
-        Vuforia.Image cameraImage = VuforiaBehaviour.Instance.CameraDevice.GetCameraImage(mPixelFormat);
+        var cameraImage = VuforiaBehaviour.Instance.CameraDevice.GetCameraImage(PixelFormat.RGB888);
+        if (cameraImage == null) return;
 
-        if (cameraImage == null)
-        {
-            Debug.LogError("Pas d'image caméra disponible via Vuforia.");
-            return;
-        }
-
-        // 2. Créer une texture complète temporaire
         Texture2D fullTex = new Texture2D(cameraImage.Width, cameraImage.Height, TextureFormat.RGB24, false);
         cameraImage.CopyToTexture(fullTex);
 
-        // 3. Calculer la position du carré rouge
-        // On convertit la position UI en coordonnées Texture
-        float ratioX = (float)fullTex.width / Screen.width;
-        float ratioY = (float)fullTex.height / Screen.height;
+        // 1. On récupère les coins EXACTS du rectangle rouge à l'écran
+        Vector3[] corners = new Vector3[4];
+        redSquare.GetWorldCorners(corners);
 
-        int centerX = (int)(redSquare.position.x * ratioX);
-        int centerY = (int)(redSquare.position.y * ratioY);
+        // 2. Mapping ultra-précis sur les pixels de la texture Vuforia
+        // On normalise (0 à 1) puis on multiplie par la largeur/hauteur réelle de la caméra
+        int xMin = (int)(((corners[0].x / Screen.width) - viewX) / viewW * fullTex.width);
+        int yMin = (int)(((corners[0].y / Screen.height) - viewY) / viewH * fullTex.height);
+        int xMax = (int)(((corners[2].x / Screen.width) - viewX) / viewW * fullTex.width);
+        int yMax = (int)(((corners[2].y / Screen.height) - viewY) / viewH * fullTex.height);
 
-        // Zone 64x64
-        int startX = Mathf.Clamp(centerX - 32, 0, fullTex.width - 64);
-        int startY = Mathf.Clamp(centerY - 32, 0, fullTex.height - 64);
+        int width = xMax - xMin;
+        int height = yMax - yMin;
 
-        // 4. Découper (Crop)
-        Texture2D snapshot = new Texture2D(64, 64);
-        Color[] pixels = fullTex.GetPixels(startX, startY, 64, 64);
-        snapshot.SetPixels(pixels);
+        // 3. Correction de l'inversion Y (Vuforia lit souvent de haut en bas)
+        // On recalcule le point de départ vertical
+        int startY = fullTex.height - yMax;
+
+        // Sécurité pour ne pas dépasser
+        xMin = Mathf.Clamp(xMin, 0, fullTex.width - width);
+        startY = Mathf.Clamp(startY, 0, fullTex.height - height);
+
+        // 4. Extraction et MIROIR (Flip Horizontal)
+        Color[] pixels = fullTex.GetPixels(xMin, startY, width, height);
+        Color[] flippedPixels = new Color[pixels.Length];
+        for (int j = 0; j < height; j++)
+        {
+            for (int i = 0; i < width; i++)
+            {
+                flippedPixels[j * width + i] = pixels[j * width + (width - 1 - i)];
+            }
+        }
+
+        Texture2D snapshot = new Texture2D(width, height);
+        snapshot.SetPixels(flippedPixels);
         snapshot.Apply();
 
-        // 5. Sauvegarder
-        string currentName = values[valIndex] + "_" + suits[suitIndex];
-        SaveTexture(snapshot, currentName);
+        // 5. Sauvegarde
+        SaveTexture(snapshot, values[valIndex] + "_" + suits[suitIndex]);
+        if (debugPreview != null) debugPreview.texture = snapshot;
 
-        // Nettoyage mémoire
         Destroy(fullTex);
-
         PrepareNext();
     }
 
     void SaveTexture(Texture2D tex, string fileName)
     {
         byte[] bytes = tex.EncodeToPNG();
-        // Sauvegarde dans Resources/Capture pour pouvoir les utiliser plus tard
         string dirPath = Application.dataPath + "/Resources/Capture/";
-
-        if (!Directory.Exists(dirPath))
-            Directory.CreateDirectory(dirPath);
-
+        if (!Directory.Exists(dirPath)) Directory.CreateDirectory(dirPath);
         File.WriteAllBytes(dirPath + fileName + ".png", bytes);
-        Debug.Log($"<color=green>PHOTO PRISE : {fileName}.png (64x64)</color>");
+        Debug.Log($"<color=green>OK: {fileName}.png</color>");
     }
 
     void PrepareNext()
     {
         valIndex++;
-        if (valIndex >= values.Length)
-        {
-            valIndex = 0;
-            suitIndex++;
-        }
-
-        if (suitIndex >= suits.Length)
-        {
-            isFinished = true;
-            Debug.Log("<color=white><b>BRAVO ! Tes 52 références sont prêtes.</b></color>");
-        }
-        else
-        {
-            Debug.Log($"<color=yellow>SUIVANT : Aligne l'<b>{values[valIndex]} de {suits[suitIndex]}</b></color>");
-        }
+        if (valIndex >= values.Length) { valIndex = 0; suitIndex++; }
+        if (suitIndex >= suits.Length) isFinished = true;
     }
 }

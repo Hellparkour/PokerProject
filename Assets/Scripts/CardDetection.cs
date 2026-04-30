@@ -17,26 +17,36 @@ public class CardDetection : MonoBehaviour
     [SerializeField] private PokerLogic pokerLogic;
 
     private Dictionary<string, float[]> databaseRefs = new Dictionary<string, float[]>();
+    private Dictionary<string, float[]> numberRefs = new Dictionary<string, float[]>();
+
     private PixelFormat mPixelFormat = PixelFormat.RGB888;
-    private const int SIG_SIZE = 16; // Grille 16x16 (256 points)
+    private const int SIG_SIZE = 16;
 
     void Start()
     {
-        VuforiaApplication.Instance.OnVuforiaStarted += () => {
-            VuforiaBehaviour.Instance.CameraDevice.SetFrameFormat(mPixelFormat, true);
-        };
+        if (VuforiaApplication.Instance != null)
+        {
+            VuforiaApplication.Instance.OnVuforiaStarted += () => {
+                VuforiaBehaviour.Instance.CameraDevice.SetFrameFormat(mPixelFormat, true);
+            };
+        }
         LoadAllSignatures();
     }
 
     private void LoadAllSignatures()
     {
         databaseRefs.Clear();
+        numberRefs.Clear();
+
+        // 1. Charger les cartes entières (Dossier Capture)
         Texture2D[] textures = Resources.LoadAll<Texture2D>("Capture");
-        foreach (var tex in textures)
-        {
-            databaseRefs.Add(tex.name.ToUpper(), GenerateSignature(tex));
-        }
-        Debug.Log($"<color=green>Base de données : {databaseRefs.Count} cartes chargées.</color>");
+        foreach (var tex in textures) databaseRefs.Add(tex.name.ToUpper(), GenerateSignature(tex));
+
+        // 2. Charger les index prioritaires (Dossier Numeros : 2_R, 2_N, 5_N...)
+        Texture2D[] nums = Resources.LoadAll<Texture2D>("Numeros");
+        foreach (var n in nums) numberRefs.Add(n.name.ToUpper(), GenerateSignature(n));
+
+        Debug.Log($"<color=green>Base prête : {databaseRefs.Count} Cartes | {numberRefs.Count} Index.</color>");
     }
 
     void Update()
@@ -68,8 +78,9 @@ public class CardDetection : MonoBehaviour
         startY = Mathf.Clamp(startY, 0, fullTex.height - height);
 
         Color[] pixels = fullTex.GetPixels(xMin, startY, width, height);
-        Color[] flipped = new Color[pixels.Length];
 
+        // Traitement de l'image (Flip + Contraste)
+        Color[] processed = new Color[pixels.Length];
         for (int j = 0; j < height; j++)
         {
             for (int i = 0; i < width; i++)
@@ -77,18 +88,28 @@ public class CardDetection : MonoBehaviour
                 Color c = pixels[j * width + (width - 1 - i)];
                 float v = (c.r + c.g + c.b) / 3f;
                 v = v > 0.5f ? 1f : v * 0.5f;
-                flipped[j * width + i] = new Color(c.r, c.g, c.b, v);
+                processed[j * width + i] = new Color(c.r, c.g, c.b, v);
             }
         }
 
         Texture2D currentCapture = new Texture2D(width, height);
-        currentCapture.SetPixels(flipped);
+        currentCapture.SetPixels(processed);
         currentCapture.Apply();
 
         if (debugPreview != null) debugPreview.texture = currentCapture;
 
-        Identify(GenerateSignature(currentCapture));
+        // Extraction précise de l'index (Coin supérieur gauche)
+        int numW = width / 4;
+        int numH = height / 4;
+        Color[] numPix = currentCapture.GetPixels(0, height - numH, numW, numH);
+        Texture2D numTex = new Texture2D(numW, numH);
+        numTex.SetPixels(numPix);
+        numTex.Apply();
+
+        IdentifyDual(GenerateSignature(currentCapture), GenerateSignature(numTex));
+
         Destroy(fullTex);
+        Destroy(numTex);
     }
 
     private float[] GenerateSignature(Texture2D tex)
@@ -102,47 +123,70 @@ public class CardDetection : MonoBehaviour
             {
                 Color c = tex.GetPixel(i * (tex.width / SIG_SIZE), j * (tex.height / SIG_SIZE));
                 sig[i * SIG_SIZE + j] = c.grayscale;
-
                 if (c.r > c.g + 0.2f && c.r > c.b + 0.2f) redPixels++;
             }
         }
-        sig[SIG_SIZE * SIG_SIZE] = (redPixels > 10) ? 1.0f : 0.0f;
+        sig[SIG_SIZE * SIG_SIZE] = (redPixels > 8) ? 1.0f : 0.0f;
         return sig;
     }
 
-    private void Identify(float[] currentSig)
+    private void IdentifyDual(float[] globalSig, float[] numSig)
     {
-        string bestMatch = null;
-        float minDiff = float.MaxValue;
-        bool currentIsRed = currentSig[SIG_SIZE * SIG_SIZE] > 0.5f;
+        string bestNumMatch = null;
+        float minNumDiff = float.MaxValue;
 
-        foreach (var entry in databaseRefs)
+        // PASSE 1 : Identifier le numéro (2, 3, 4, 5...)
+        foreach (var entry in numberRefs)
         {
             float diff = 0;
-            bool refIsRed = entry.Value[SIG_SIZE * SIG_SIZE] > 0.5f;
-
-            if (currentIsRed != refIsRed) diff += 500.0f;
-
             for (int i = 0; i < SIG_SIZE * SIG_SIZE; i++)
             {
-                int x = i % SIG_SIZE;
                 int y = i / SIG_SIZE;
-                float weight = 1.0f;
-                if (x < 6 && y > 10) weight = 4.0f;
-
-                diff += Mathf.Abs(currentSig[i] - entry.Value[i]) * weight;
+                float weight = (y > 10) ? 3.0f : 1.0f;
+                diff += Mathf.Abs(numSig[i] - entry.Value[i]) * weight;
             }
 
-            if (diff < minDiff)
+            if (diff < minNumDiff)
             {
-                minDiff = diff;
-                bestMatch = entry.Key;
+                minNumDiff = diff;
+                bestNumMatch = entry.Key;
             }
         }
 
-        if (minDiff < 100.0f && bestMatch != null)
+        if (bestNumMatch == null || minNumDiff > 200f) return;
+
+        string[] nParts = bestNumMatch.Split('_');
+        string targetValue = nParts[0]; 
+        bool targetIsRed = nParts[1] == "R";
+
+        // PASSE 2 : On cherche la carte globale MAIS on filtre strictement
+        string bestCard = null;
+        float minGlobalDiff = float.MaxValue;
+
+        foreach (var entry in databaseRefs)
         {
-            ProcessDetection(bestMatch);
+            string[] cParts = entry.Key.Split('_');
+            bool refIsRed = entry.Value[SIG_SIZE * SIG_SIZE] > 0.5f;
+
+            if (cParts[0] != targetValue || refIsRed != targetIsRed) continue;
+
+            float diff = 0;
+            for (int i = 0; i < SIG_SIZE * SIG_SIZE; i++)
+            {
+                diff += Mathf.Abs(globalSig[i] - entry.Value[i]);
+            }
+
+            if (diff < minGlobalDiff)
+            {
+                minGlobalDiff = diff;
+                bestCard = entry.Key;
+            }
+        }
+
+        if (bestCard != null)
+        {
+            Debug.Log($"<color=cyan>Index : {bestNumMatch} (Confiance Index: {minNumDiff:F0}) -> Carte : {bestCard}</color>");
+            ProcessDetection(bestCard);
         }
     }
 
@@ -153,21 +197,12 @@ public class CardDetection : MonoBehaviour
             string[] parts = cardName.Split('_');
             if (parts.Length == 2)
             {
-                // On prépare les strings pour correspondre aux Enums
-                string valueStr = parts[0];
-                if (valueStr == "10") valueStr = "Dix";
-
-                // Utilisation du paramètre 'true' pour ignorer ROI vs Roi
-                CardValue v = (CardValue)System.Enum.Parse(typeof(CardValue), valueStr, true);
+                string vStr = parts[0] == "10" ? "Dix" : parts[0];
+                CardValue v = (CardValue)System.Enum.Parse(typeof(CardValue), vStr, true);
                 CardSuit s = (CardSuit)System.Enum.Parse(typeof(CardSuit), parts[1], true);
-
                 pokerLogic.AddDetectedCardToPlayer(new Card { value = v, suit = s });
-                Debug.Log($"<color=cyan>Carte envoyée : {v} de {s}</color>");
             }
         }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"Erreur conversion '{cardName}': {e.Message}");
-        }
+        catch { }
     }
 }

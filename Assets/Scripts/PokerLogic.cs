@@ -21,6 +21,11 @@ public class PokerLogic : MonoBehaviour
     public List<Card> playerHand = new List<Card>();
     public List<Card> computerHand = new List<Card>();
 
+    [Header("Sons de Fin de Partie")]
+    public AudioSource audioSource;
+    public AudioClip soundVictory;
+    public AudioClip soundDefeat;
+
     [HideInInspector] public List<GameObject> playerCardVisuals = new List<GameObject>();
     private List<GameObject> computerCardVisuals = new List<GameObject>();
 
@@ -209,7 +214,16 @@ public class PokerLogic : MonoBehaviour
     {
         PokerHand p = new PokerHand(playerHand);
         PokerHand a = new PokerHand(computerHand);
-        Debug.Log($"FIN : {p.handCombo} vs {a.handCombo}");
+
+        int scoreJoueur = (int)p.handCombo;
+        int scoreIA = (int)a.handCombo;
+
+        Debug.Log($"FIN DE PARTIE : Joueur ({p.handCombo}) vs IA ({a.handCombo})");
+
+        // On envoie les scores à la fonction qui gère les sons et l'affichage
+        DeterminerResultat(scoreJoueur, scoreIA);
+
+        Invoke("ResetGame", 5f);
     }
 
     private IEnumerator FoldSequence()
@@ -259,5 +273,32 @@ public class PokerLogic : MonoBehaviour
     {
         if (index >= 0 && index < playerCardVisuals.Count)
             playerCardVisuals[index].GetComponent<CardSelectable>()?.ToggleSelect();
+    }
+
+    public void DeterminerResultat(int scoreJoueur, int scoreIA)
+    {
+        if (scoreJoueur > scoreIA)
+        {
+            Debug.Log("<color=green>VICTOIRE !</color>");
+            PlayResultSound(soundVictory);
+        }
+        else if (scoreJoueur < scoreIA)
+        {
+            Debug.Log("<color=red>DÉFAITE...</color>");
+            PlayResultSound(soundDefeat);
+        }
+        else
+        {
+            Debug.Log("<color=yellow>ÉGALITÉ</color>");
+            // PlayResultSound(soundTie);
+        }
+    }
+
+    private void PlayResultSound(AudioClip clip)
+    {
+        if (audioSource != null && clip != null)
+        {
+            audioSource.PlayOneShot(clip);
+        }
     }
 }
